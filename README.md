@@ -88,51 +88,24 @@ The Painting Project database consists of six tables, each serving a specific pu
 
 ## SQL Queries
 
-### Problem 1: Monthly Trends for Google Search Sessions and Orders
+## Query 1: Fetch all the paintings which are not displayed on any museums?
 
-#### SQL Query
 ```sql
-SELECT 
-    YEAR(a.created_at) AS year, 
-    MONTH(a.created_at) AS month,
-    COUNT(DISTINCT a.website_session_id) AS sessions,
-    COUNT(DISTINCT b.order_id) AS orders,
-    ROUND(COUNT(DISTINCT b.order_id) * 1.0 / COUNT(DISTINCT a.website_session_id) * 100, 2) AS conv_rate
-FROM 
-    website_sessions a
-LEFT JOIN 
-    orders b ON b.website_session_id = a.website_session_id
-WHERE 
-    a.created_at < '2012-11-27'
-    AND a.utm_source = 'gsearch'
-GROUP BY 
-    1, 2;
+SELECT p.work_id
+FROM product_size p
+LEFT JOIN work w
+ON p.work_id = w.work_id
+WHERE w.museum_id IS NULL;
 ```
+#### Query Explanation
+This query retrieves all the paintings (identified by `work_id`) that are not currently displayed in any museums.
 
-### Query Explanation
-- The query groups data by year and month using the `created_at` column.
-- It counts distinct sessions and orders, and calculates the conversion rate as orders per session.
-- The filter ensures only Google Search sessions (`utm_source = 'gsearch'`) are included.
-- Results are grouped by year and month.
+- **LEFT JOIN:** The query uses a `LEFT JOIN` to join the `product_size` table with the `work` table on the `work_id` field. This ensures that all paintings from the `product_size` table are included, even if they do not have a corresponding entry in the `work` table.
+- **Condition:** The `WHERE` clause filters for rows where the `museum_id` is `NULL`, meaning the painting is not associated with any museum.
 
-### Answer
-The query returns the following result:
+#### Answer Interpretation
+The query will return a list of paintings (by `work_id`) that are not currently displayed in any museum.
 
-| Year | Month | Sessions | Orders | Conversion Rate |
-|------|-------|----------|--------|-----------------|
-| 2012 | 3     | 1860     | 60     | 3.23%           |
-| 2012 | 4     | 3574     | 92     | 2.57%           |
-| 2012 | 5     | 3410     | 97     | 2.84%           |
-| 2012 | 6     | 3578     | 121    | 3.38%           |
-| 2012 | 7     | 3811     | 145    | 3.80%           |
-| 2012 | 8     | 4877     | 184    | 3.77%           |
-| 2012 | 9     | 4491     | 188    | 4.19%           |
-| 2012 | 10    | 5534     | 234    | 4.23%           |
-| 2012 | 11    | 8889     | 373    | 4.20%           |
-
-### Answer Interpretation
-- **Consistent Growth**: Both sessions and orders increased steadily each month.
-- **Positive Conversion Rate**: The conversion rate improved month-over-month, indicating an increasing efficiency in converting sessions into orders over time.
 
 ## Problem 2
 **Objective:** Identify museums that do not have any paintings.
@@ -162,3 +135,14 @@ This query will return a list of museums that do not have any paintings or works
 SELECT COUNT(work_id)
 FROM product_size 
 WHERE sale_price > regular_price
+```
+
+#### Query Explanation
+This query counts the number of paintings that have an asking price (sale price) greater than their regular price.
+
+- **Condition:** The `WHERE` clause filters the rows to only include those where the `sale_price` is greater than the `regular_price`.
+- **COUNT:** The `COUNT` function is used to return the total number of `work_id` entries that meet this condition, effectively counting the number of paintings with an asking price higher than the regular price.
+
+#### Answer Interpretation
+The query will return the number of paintings where the asking price (sale price) exceeds the regular price.
+
