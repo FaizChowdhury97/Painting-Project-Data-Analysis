@@ -88,7 +88,8 @@ The Painting Project database consists of six tables, each serving a specific pu
 
 ## SQL Queries
 
-## Query 1: Fetch all the paintings which are not displayed on any museums?
+### Query 1: 
+Fetch all the paintings which are not displayed on any museums?
 
 ```sql
 SELECT p.work_id
@@ -107,8 +108,8 @@ This query retrieves all the paintings (identified by `work_id`) that are not cu
 The query will return a list of paintings (by `work_id`) that are not currently displayed in any museum.
 
 
-## Problem 2
-**Objective:** Identify museums that do not have any paintings.
+### Query 2
+Identify museums that do not have any paintings.
 
 #### SQL Query
 ```sql
@@ -129,7 +130,8 @@ This query identifies museums that do not have any paintings by checking the `mu
 #### Answer Interpretation
 This query will return a list of museums that do not have any paintings or works of art listed in the `work` table.
 
-### Query 3: How many paintings have an asking price of more than their regular price?
+### Query 3:
+How many paintings have an asking price of more than their regular price?
 
 ```sql
 SELECT COUNT(work_id)
@@ -145,4 +147,166 @@ This query counts the number of paintings that have an asking price (sale price)
 
 #### Answer Interpretation
 The query will return the number of paintings where the asking price (sale price) exceeds the regular price.
+
+### Query 4: 
+Identify the paintings whose asking price is less than 50% of its regular price
+
+```sql
+SELECT * 
+FROM product_size
+WHERE sale_price < (0.5 * regular_price)
+```
+#### Query Explanation
+The `WHERE` clause filters the rows to include only those where the `sale_price` is less than half of the `regular_price`. This is achieved by using the condition `sale_price < (0.5 * regular_price)`.
+
+#### Answer Interpretation
+The query will return all the rows from the `product_size` table where the asking price of a painting is less than 50% of its regular price. These results highlight paintings being sold at significant discounts, which could provide insights into sales or pricing strategies.
+
+### Query 5: 
+Which canvas size costs the most?
+
+```sql
+SELECT size_id, MAX(sale_price) AS max_sale
+FROM product_size
+GROUP BY size_id
+ORDER BY max_sale DESC 
+LIMIT 1;
+```
+
+#### Query Explanation
+- **MAX(sale_price):** Retrieves the maximum sale price for each canvas size (`size_id`).
+- **GROUP BY size_id:** Groups the data by `size_id` so the maximum price can be calculated for each canvas size.
+- **ORDER BY max_sale DESC:** Orders the results in descending order of the maximum sale price.
+- **LIMIT 1:** Restricts the output to only the canvas size with the highest maximum sale price.
+
+#### Answer Interpretation
+This query identifies the canvas size (`size_id`) with the highest sale price (`max_sale`) across all records in the `product_size` table. The result highlights the most expensive canvas size available for sale, which could provide insights into pricing trends or premium offerings.
+
+### Query 6: 
+Delete duplicate records from work, product_size, subject, and image_link tables
+
+```sql
+-- For work table
+DELETE FROM work
+WHERE work_id NOT IN (
+    SELECT MIN(work_id)
+    FROM work
+    GROUP BY name, artist_id, style, museum_id
+);
+
+-- For product_size table
+DELETE FROM product_size
+WHERE work_id NOT IN (
+    SELECT MIN(work_id)
+    FROM product_size
+    GROUP BY size_id, sale_price, regular_price
+);
+
+-- For subject table
+DELETE FROM subject
+WHERE work_id NOT IN (
+    SELECT MIN(work_id)
+    FROM subject
+    GROUP BY work_id, subject
+);
+
+-- For image_link table
+DELETE FROM image_link
+WHERE work_id NOT IN (
+    SELECT MIN(work_id)
+    FROM image_link
+    GROUP BY url, thumbnail_small_url, thumbnail_large_url
+);
+```
+### Query Explanation
+1. **DELETE Statement:** Deletes duplicate records from the specified tables.
+2. **Subquery with MIN(work_id):** Identifies the lowest `work_id` for each unique combination of grouped fields, ensuring one unique entry is retained for each grouping.
+3. **GROUP BY Clause:**
+   - For `work`: Groups by `name`, `artist_id`, `style`, and `museum_id`.
+   - For `product_size`: Groups by `size_id`, `sale_price`, and `regular_price`.
+   - For `subject`: Groups by `work_id` and `subject`.
+   - For `image_link`: Groups by `url`, `thumbnail_small_url`, and `thumbnail_large_url`.
+4. **NOT IN Clause:** Ensures that only rows not matching the minimum `work_id` in the grouped results are deleted.
+
+### Answer Interpretation
+The query removes duplicate rows from the `work`, `product_size`, `subject`, and `image_link` tables while retaining one unique record for each combination of grouped fields. This process ensures data integrity and eliminates redundancy in the database.
+
+### Query 7: Identify the museums with invalid city information in the given dataset
+
+SELECT museum_id, name, city
+FROM museum
+WHERE city IS NULL
+   OR city = ' '
+   OR city REGEXP '[^A-Za-z]'
+   OR city REGEXP '^[0-9]'
+   OR LENGTH(city) < 3;
+
+-- Additional Query
+SELECT * 
+FROM museum 
+WHERE city REGEXP '^[0-9]';
+
+### Query Explanation
+1. **Invalid City Checks:**
+   - `city IS NULL`: Identifies records where the city field is missing.
+   - `city = ' '`: Checks for city fields with only a space.
+   - `city REGEXP '[^A-Za-z]'`: Detects cities containing non-alphabetic characters.
+   - `city REGEXP '^[0-9]'`: Flags cities starting with numeric characters.
+   - `LENGTH(city) < 3`: Ensures cities have at least three characters to be considered valid.
+
+2. **Additional Query:** The second query specifically checks for museums where the city starts with a numeric character using a regular expression.
+
+### Answer Interpretation
+The first query returns all museums with invalid city information, considering various criteria like null values, spaces, non-alphabetic characters, or cities starting with numbers. The second query focuses solely on cities that begin with numeric characters, offering a targeted validation check.
+
+### Query 8: Museum_Hours table has 1 invalid entry. Identify it and remove it.
+
+```sql
+
+SET SQL_SAFE_UPDATES = 0;
+
+WITH RankedMuseumHours AS (
+    SELECT *, 
+           ROW_NUMBER() OVER (PARTITION BY museum_id, day ORDER BY museum_id) AS rn
+    FROM museum_hours
+)
+DELETE FROM museum_hours
+WHERE museum_id IN (
+    SELECT museum_id
+    FROM RankedMuseumHours
+    WHERE rn > 1
+);
+```
+### Query Explanation
+1. **Identify Duplicate Entries:**
+   - **CTE (Common Table Expression):** The `RankedMuseumHours` CTE ranks rows within the `museum_hours` table based on `museum_id` and `day`, assigning a unique `ROW_NUMBER` to each entry in ascending order.
+   - **Partition:** `PARTITION BY museum_id, day` groups rows for the same museum and day.
+   - **Ranking Logic:** The `ROW_NUMBER` function orders rows, identifying duplicates as those with a rank (`rn`) greater than 1.
+
+2. **Delete Invalid Entry:**
+   - The `DELETE` statement removes rows from the `museum_hours` table where the rank (`rn`) is greater than 1, ensuring only one valid record per `museum_id` and `day`.
+
+### Answer Interpretation
+The query identifies and removes duplicate or invalid entries in the `museum_hours` table by using a ranking mechanism. After execution:
+- Only the first valid entry (based on `ROW_NUMBER`) for each `museum_id` and day remains.
+- Duplicate rows, including the invalid one, are removed.
+
+### Query 9:
+Fetch the top 10 most famous painting subjects
+
+```sql
+SELECT * 
+FROM (
+    SELECT 
+        s.subject, 
+        COUNT(1) AS no_of_paintings,
+        RANK() OVER (ORDER BY COUNT(1) DESC) AS ranking
+    FROM work w
+    JOIN subject s 
+        ON s.work_id = w.work_id
+    GROUP BY s.subject
+) x
+WHERE ranking <= 10;
+```
+
 
